@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.web.*?>
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="800.0" prefWidth="1280.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.romanchi.controllers.OddsportalCtrl">
+   <left>
+      <ListView fx:id="menu" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+   </left>
+   <center>
+      <WebView fx:id="browser" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+   </center>
+   <top>
+      <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+        <items>
+          <Button fx:id="startBtn" mnemonicParsing="false" onAction="#startParsing" text="Start" />
+            <TextField fx:id="locationInputField" promptText="location (not required)" />
+        </items>
+      </ToolBar>
+   </top>
+   <bottom>
+      <HBox BorderPane.alignment="CENTER">
+         <children>
+            <Label fx:id="statusLabel" text="ready" />
+            <Label fx:id="location" text="location">
+               <HBox.margin>
+                  <Insets left="50.0" />
+               </HBox.margin>
+            </Label>
+            <Label text="Label" />
+         </children>
+      </HBox>
+   </bottom>
+</BorderPane>
