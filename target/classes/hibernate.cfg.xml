@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <property name="hibernate.dialect">
+            org.hibernate.dialect.MySQL55Dialect
+        </property>
+        <property name="hibernate.connection.driver_class">
+            com.mysql.jdbc.Driver
+        </property>
+        <property name="hibernate.connection.url">
+            jdbc:mysql://localhost:3306/oddsportal
+        </property>
+        <property name="hibernate.connection.username">
+            root
+        </property>
+        <property name="hibernate.connection.password">
+        </property>
+        <property name="hbm2ddl.auto">update</property>
+        <property name="hibernate.id.new_generator_mappings" >false</property>
+        <property name="hibernate.show_sql">false</property>
+        <property name="hibernate.c3p0.min_size">50</property>
+        <property name="hibernate.cache.use_second_level_cache">false</property>
+        <mapping class="org.romanchi.DAO.MatchDAO"></mapping>
+        <mapping class="org.romanchi.DAO.BetDAO"></mapping>
+        <mapping class="org.romanchi.DAO.BookmakerDAO"></mapping>
+        <mapping class="org.romanchi.DAO.HighDAO"></mapping>
+        <mapping class="org.romanchi.DAO.LigaDAO"></mapping>
+
+    </session-factory>
+</hibernate-configuration>
