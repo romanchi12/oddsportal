@@ -4,11 +4,13 @@ import io.webfolder.ui4j.api.browser.BrowserEngine;
 import io.webfolder.ui4j.api.browser.BrowserFactory;
 import io.webfolder.ui4j.api.browser.Page;
 import io.webfolder.ui4j.api.dom.Document;
+import org.dellroad.stuff.spring.RetryTransaction;
 import org.hibernate.Session;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.romanchi.DAO.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -19,37 +21,51 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * Created by Роман on 29.07.2017.
  */
-public class OddsportalParser {
-    private static BrowserEngine webkit = BrowserFactory.getWebKit();
-    private static Page page = null;
-    private static Document document = null;
-    private static ArrayList<String> linkIds = new ArrayList<String>();
-    private static String login = "romanchi";
-
-    /*Login*/
-    public static void login(String login, String password) {
-        OddsportalParser.login = login;
-        page = webkit.navigate("http://www.oddsportal.com/");
-        //page.show(true);
-        document = page.getDocument();
-        // set the searh criteria
-        document.query("#login-username").get().setValue(login);
-        document.query("#login-password").get().setValue(password);
-        document.query("[name='login-submit']").get().click();
+public class OddsportalParser extends Thread {
+    private BrowserEngine webkit = BrowserFactory.getWebKit();
+    private Page page = null;
+    private Document document = null;
+    private ArrayList<String> linkIds = new ArrayList<String>();
+    private String login;
+    private int startWith;
+    private int howMuch;
+    public OddsportalParser(int startWith, int howMuch){
+        this.login("romanchi","frdfhtkm12");
+        this.startWith = startWith;
+        this.howMuch = howMuch;
     }
 
-    public static boolean isLogined() {
+    /*Login*/
+    public void login(String login, String password) {
+        this.login = login;
+        if(isLogined()){return;}
         page = webkit.navigate("http://www.oddsportal.com/");
         document = page.getDocument();
-        return document.query("#user-header").get().getInnerHTML().contains(OddsportalParser.login);
+        boolean isLogined = false;
+        while(!isLogined){
+            try{
+                System.out.println(document.query("#login-username").get());
+                document.query("#login-username").get().setValue(this.login);
+                document.query("#login-password").get().setValue(password);
+                document.query("[name='login-submit']").get().click();
+                isLogined = true;
+            }catch (NoSuchElementException exception){}
+        }
+    }
+
+    public boolean isLogined() {
+        page = webkit.navigate("http://www.oddsportal.com/");
+        document = page.getDocument();
+        return document.query("#user-header").get().getInnerHTML().contains(login);
     }
 
     /*Getting rusults links*/
-    public static void parseLinkIdsLinkIds() {
+    public void parseLinkIdsLinkIds() {
         page = webkit.navigate("http://www.oddsportal.com/soccer/spain/laliga/results/");
         document = page.getDocument();
         String data = document.getBody().getOuterHTML();
@@ -59,13 +75,11 @@ public class OddsportalParser {
             try {
                 String link = "http://www.oddsportal.com" + linkNode.attr("href");
                 linkIds.add(link);
-            } catch (NullPointerException ex) {
-
-            }
+            } catch (NullPointerException ex) {}
         }
         System.out.println(linkIds);
     }
-    public static void initializeLinkIds(){
+    public void initializeLinkIds(){
         linkIds.add("http://www.oddsportal.com/soccer/england/premier-league-2016-2017/results/");
         linkIds.add("http://www.oddsportal.com/soccer/finland/veikkausliiga-2016/results/");
         linkIds.add("http://www.oddsportal.com/soccer/france/ligue-1-2016-2017/results/");
@@ -92,7 +106,7 @@ public class OddsportalParser {
 
     }
     /*Parse matches*/
-    private static boolean parseMatchData(String data, LigaDAO ligaDAO) {
+    private boolean parseMatchData(String data, LigaDAO ligaDAO) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         org.jsoup.nodes.Document d = Jsoup.parse(data);
         Elements rows = d.select("#tournamentTable .table-main tbody tr.deactivate");
@@ -134,12 +148,11 @@ public class OddsportalParser {
         return true;
     }
 
-    private static boolean parseMatches(String link, LigaDAO ligaDAO) throws InterruptedException {
+    private boolean parseMatches(String link, LigaDAO ligaDAO) throws InterruptedException {
         System.out.println(link);
         page = webkit.navigate(link);
         document = page.getDocument();
         String data = document.getBody().getOuterHTML();
-        //System.out.println(data);
         int trying = 0;
         while (!parseMatchData(data, ligaDAO)) {
             if (trying >= 5) {
@@ -155,7 +168,7 @@ public class OddsportalParser {
         return true;
     }
 
-    public static boolean parseAllYears() throws InterruptedException {
+    public boolean parseAllYears() throws InterruptedException {
         initializeLinkIds();
         for (int linkId = 0; linkId < linkIds.size(); linkId++) {
             LigaDAO ligaDAO = new LigaDAO(linkIds.get(linkId));
@@ -168,12 +181,12 @@ public class OddsportalParser {
     }
 
     /*Bet*/
-    private static boolean parseBetData(String data, MatchDAO matchDAO) {
+    @RetryTransaction
+    @Transactional
+    private boolean parseBetData(String data, MatchDAO matchDAO) {
         Session session = HibernateUtil.getSessionFactory().openSession();
-
         session.beginTransaction();
         org.jsoup.nodes.Document document = Jsoup.parse(data);
-
         Elements tabs = document.select("#tab-nav-main li[style=display: block;]");
         if(tabs.isEmpty()){
             session.flush();
@@ -219,7 +232,7 @@ public class OddsportalParser {
             double highestDrawValue = Double.parseDouble(highestDraw.text());
             double highestSecondValue = Double.parseDouble(highestSecond.text());
             double highestKoefficient = 1/highestFirstValue + 1/highestDrawValue + 1/highestSecondValue;
-            if(highestKoefficient >= 1){
+            if(highestKoefficient >= 1.005){
                 session.flush();
                 session.clear();
                 session.close();
@@ -279,7 +292,7 @@ public class OddsportalParser {
         return true;
     }
 
-    public static boolean parseMatchBets(MatchDAO matchDAO) {
+    public boolean parseMatchBets(MatchDAO matchDAO) {
         page = webkit.navigate(matchDAO.getMatchLink());
         document = page.getDocument();
         String data = document.getBody().getOuterHTML();
@@ -301,7 +314,9 @@ public class OddsportalParser {
 
 
     /*Handicape*/
-    private static boolean parseHandicapeData(String data, MatchDAO matchDAO) {
+    @RetryTransaction
+    @Transactional
+    private boolean parseHandicapeData(String data, MatchDAO matchDAO) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         session.beginTransaction();
         org.jsoup.nodes.Document document = Jsoup.parse(data);
@@ -344,7 +359,7 @@ public class OddsportalParser {
                 double highestFirstValue = Double.parseDouble(highestFirst.text());
                 double highestSecondValue = Double.parseDouble(highestSecond.text());
                 double highestKoefficient = 1/highestFirstValue + 1/highestSecondValue;
-                if(highestKoefficient >= 1){
+                if(highestKoefficient >= 1.005){
                     continue;
                 }
             }catch (NumberFormatException ex){
@@ -407,7 +422,7 @@ public class OddsportalParser {
         return true;
     }
 
-    public static boolean parseMatchHandicape(MatchDAO match) throws InterruptedException {
+    public boolean parseMatchHandicape(MatchDAO match) throws InterruptedException {
         String matchLink = match.getMatchLink();
         page = webkit.navigate(matchLink + "#ah;2");
         document = page.getDocument();
@@ -435,7 +450,9 @@ public class OddsportalParser {
     }
 
     /*Over Under*/
-    private static boolean parseOverUnderData(String data, MatchDAO matchDAO) {
+    @RetryTransaction
+    @Transactional
+    private boolean parseOverUnderData(String data, MatchDAO matchDAO) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         session.beginTransaction();
         org.jsoup.nodes.Document document = Jsoup.parse(data);
@@ -478,7 +495,7 @@ public class OddsportalParser {
                 double highestFirstValue = Double.parseDouble(highestFirst.text());
                 double highestSecondValue = Double.parseDouble(highestSecond.text());
                 double highestKoefficient = 1/highestFirstValue + 1/highestSecondValue;
-                if(highestKoefficient >= 1){
+                if(highestKoefficient >= 1.005){
                     continue;
                 }
             }catch (NumberFormatException ex){
@@ -543,7 +560,7 @@ public class OddsportalParser {
         return true;
     }
 
-    public static boolean parseMatchOverUnder(MatchDAO match) throws InterruptedException {
+    public boolean parseMatchOverUnder(MatchDAO match) throws InterruptedException {
         String matchLink = match.getMatchLink();
         page = webkit.navigate(matchLink + "#over-under;2");
         document = page.getDocument();
@@ -569,22 +586,36 @@ public class OddsportalParser {
         }
         return true;
     }
+
+    @Override
+    public void run() {
+        try {
+            this.parseMatchesBetsAndHandicapesAndOverUnder();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     /*Bets and Handicapes*/
-    public static boolean parseMatchesBetsAndHandicapesAndOverUnder(int startWith) throws InterruptedException {
+    public boolean parseMatchesBetsAndHandicapesAndOverUnder() throws InterruptedException {
         Session session = HibernateUtil.getSessionFactory().openSession();
         CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
         CriteriaQuery<MatchDAO> criteriaQuery = criteriaBuilder.createQuery(MatchDAO.class);
         Root<MatchDAO> root = criteriaQuery.from(MatchDAO.class);
         criteriaQuery.select(root);
         TypedQuery<MatchDAO> typedQuery = session.createQuery(criteriaQuery);
-        List<MatchDAO> packList = null;
-        for (int pack = startWith; !(packList = typedQuery.setFirstResult(pack).setMaxResults(100).getResultList()).isEmpty(); pack += 100) {
-            for (MatchDAO match : packList) {
+        List<MatchDAO> packList = typedQuery.setFirstResult(startWith).setMaxResults(this.howMuch).getResultList();
+        for (MatchDAO match : packList) {
+            try{
                 System.out.println(match.getMatchId() + " " + match.getMatchLink());
                 parseMatchBets(match);
                 parseMatchHandicape(match);
                 parseMatchOverUnder(match);
                 System.gc();
+            }catch (InterruptedException ex){
+                session.clear();
+                session.close();
+                return true;
             }
         }
         session.clear();
@@ -592,12 +623,8 @@ public class OddsportalParser {
         return true;
     }
 
-    public static boolean parseMatchesBetsAndHandicapesAndOverUnder() throws InterruptedException {
-        return parseMatchesBetsAndHandicapesAndOverUnder(0);
-    }
 
-
-    public static boolean parseMatchesOverUnder(int startWith) throws InterruptedException {
+    public boolean parseMatchesOverUnder() throws InterruptedException {
         Session session = HibernateUtil.getSessionFactory().openSession();
         CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
         CriteriaQuery<MatchDAO> criteriaQuery = criteriaBuilder.createQuery(MatchDAO.class);
@@ -616,4 +643,5 @@ public class OddsportalParser {
         session.close();
         return true;
     }
+
 }

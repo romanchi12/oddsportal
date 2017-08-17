@@ -10,7 +10,7 @@ import javax.persistence.*;
  * Created by Роман on 29.07.2017.
  */
 @Entity
-@Table(name = "bets_v4")
+@Table(name = "bets_v5")
 public class BetDAO {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

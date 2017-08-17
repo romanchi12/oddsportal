@@ -103,7 +103,6 @@ public class OddsportalCtrl extends Ctrl implements Initializable {
                     }
                 });
     }
-
     public void startParsing(ActionEvent actionEvent) {
         for(int page=1; hasNextPage; page++){
             browser.getEngine().load(locationInputField.getText() + "#/page/" + page +"/");

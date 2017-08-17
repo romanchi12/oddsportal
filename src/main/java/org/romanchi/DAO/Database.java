@@ -15,6 +15,7 @@ import java.util.List;
  * Created by Роман on 31.07.2017.
  */
 public class Database {
+
     public static BookmakerDAO getBookmakerByName(String name){
         Session session = HibernateUtil.getSessionFactory().openSession();
         CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();

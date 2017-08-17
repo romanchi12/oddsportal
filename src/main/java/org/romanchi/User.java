@@ -12,8 +12,10 @@ import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -24,6 +26,14 @@ public class User extends Thread{
     private String bookmakerName;
     private double betSize;
     private int type;
+    HashMap<String, Double> bookmakerBanks = new HashMap<>();
+    private void updateBookmakerBank(String bookmakerName, double difference){
+        if(bookmakerBanks.get(bookmakerName) == null){
+            bookmakerBanks.put(bookmakerName, difference);
+        }else{
+            bookmakerBanks.put(bookmakerName, bookmakerBanks.get(bookmakerName) + difference);
+        }
+    }
     public User(){
 
     }
@@ -38,9 +48,6 @@ public class User extends Thread{
             ex.printStackTrace();
         }
     }
-    private int iterations = 0;
-    double max = this.bank;
-    double sum = 0;
     private UserCtrl userCtrl;
     @Override
     public void run() {
@@ -58,7 +65,7 @@ public class User extends Thread{
         });
         Predicate p1 = criteriaBuilder.equal(root.get("type"), this.type);
         Predicate p2 = criteriaBuilder.equal(root.<BookmakerDAO>get("bookmaker"), Database.getBookmakerByName(this.bookmakerName));
-       // criteriaQuery.where(p2);
+        //criteriaQuery.where(p2);
         TypedQuery<HighDAO> highDAOTypedQuery = session.createQuery(criteriaQuery);
         List<HighDAO> highDAOS = highDAOTypedQuery.getResultList();
         //this.bank = highDAOS.size();
@@ -71,6 +78,7 @@ public class User extends Thread{
                 switch (highDAOS.get(i).getType()){
                     case HighTypes.BET: {
                         doBet(highDAOS.get(i));
+                        break;
                     }
                     case HighTypes.HANDICAPE: {
                         doHandicape(highDAOS.get(i));
@@ -83,7 +91,15 @@ public class User extends Thread{
                 }
             }
         }
-
+        updateGUI();
+        updateDatabase();
+        double sum = 0;
+        for(String key:bookmakerBanks.keySet()){
+            sum += bookmakerBanks.get(key);
+        }
+        System.out.println("ALL: " + sum);
+    }
+    private void updateGUI(){
         BigDecimal bigDecimal = new BigDecimal(this.bank);
         bigDecimal = bigDecimal.setScale(2, RoundingMode.CEILING);
         final double bank = bigDecimal.doubleValue();
@@ -93,7 +109,27 @@ public class User extends Thread{
             ex.printStackTrace();
         }
     }
-    private void doBet(HighDAO highDAO){
+    private void updateDatabase(){
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
+        CriteriaQuery<BookmakerDAO> criteriaQuery = criteriaBuilder.createQuery(BookmakerDAO.class);
+        Root<BookmakerDAO> root = criteriaQuery.from(BookmakerDAO.class);
+        criteriaQuery.select(root);
+        TypedQuery<BookmakerDAO> typedQuery = session.createQuery(criteriaQuery);
+        List<BookmakerDAO> bookmakerDAOS = typedQuery.getResultList();
+        session.beginTransaction();
+        for(BookmakerDAO bookmakerDAO:bookmakerDAOS){
+            try{
+                bookmakerDAO.setBank(bookmakerBanks.get(bookmakerDAO.getBookmakerName()));
+                session.update(bookmakerDAO);
+            }catch (NullPointerException ex){}
+            session.flush();
+        }
+        session.getTransaction().commit();
+        session.clear();
+        session.close();
+    }
+    public void doBet(HighDAO highDAO){
         String[] goals = highDAO.getMatch().getScore().split(":");
         try {
             Integer first = Integer.parseInt(goals[0]);
@@ -104,28 +140,36 @@ public class User extends Thread{
                 if(highDAO.getBetWinner() == WinnerTypes.DRAW){
                     bank -= betSize;
                     bank += highDAO.getHighValue()*betSize;
+                    updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*betSize - betSize);
                 }else{
                     bank -= betSize;
+                    updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                 }
             }else if(diff > 0){
                 //first win
                 if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                     bank -= betSize;
                     bank += highDAO.getHighValue()*betSize;
+                    updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*betSize - betSize);
                 }else{
                     bank -= betSize;
+                    updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                 }
             }else if(diff < 0){
                 //second win
                 if(highDAO.getBetWinner() == WinnerTypes.SECOND){
                     bank -= betSize;
                     bank += highDAO.getHighValue()*betSize;
+                    updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*betSize - betSize);
+                }else{
+                    bank -= betSize;
+                    updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                 }
             }
         }catch (NumberFormatException ex){}
         System.out.println(bank);
     }
-    private void doHandicape(HighDAO highDAO) {
+    public void doHandicape(HighDAO highDAO) {
         MatchDAO matchDAO = highDAO.getMatch();
         try{
             double firstGoals = Double.parseDouble(matchDAO.getScore().split(":")[0]);
@@ -150,19 +194,23 @@ public class User extends Thread{
                         if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }else{
                             //win
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }
                     }else{
                         if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                             //win
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }else{
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }
                     }
                 }
@@ -175,19 +223,23 @@ public class User extends Thread{
                         if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }else{
                             //win
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }
                     }else{
                         if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                             //win
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }else{
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }
                     }
                 }
@@ -205,29 +257,32 @@ public class User extends Thread{
                         if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                             //lose
                             bank -= betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                         }else{
                             //win
                             bank -= betSize;
                             bank += highDAO.getHighValue()*betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize) - (betSize));
                         }
                     }else{
                         if(highDAO.getBetWinner() == WinnerTypes.FIRST){
                             //win
                             bank -= betSize;
                             bank += highDAO.getHighValue()*betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize) - (betSize));
                         }else{
                             //lose
                             bank -= betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                         }
                     }
                 }
             }
         }catch (NumberFormatException ex){
-        }catch (NullPointerException ex){
-
-        }
+        }catch (NullPointerException ex){}
+        System.out.println(bank);
     }
-    private  void doOverUnder(HighDAO highDAO){
+    public void doOverUnder(HighDAO highDAO){
         try{
             String [] goals = highDAO.getMatch().getScore().split(":");
             Integer first = Integer.parseInt(goals[0]);
@@ -238,7 +293,6 @@ public class User extends Thread{
                 //dividing by 2
                 double total_v1 = totalValue - 0.25;
                 double total_v2 = totalValue + 0.25;
-                System.out.println(total + " " + total_v1 + " " + total_v2);
                 if(total == total_v1){
                     //doing nothing
                 }else{
@@ -246,19 +300,23 @@ public class User extends Thread{
                         if(highDAO.getBetWinner() == WinnerTypes.OVER){
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }else{
                             //win
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }
                     }else{ //total > total_v1
                         if(highDAO.getBetWinner() == WinnerTypes.UNDER){
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }else{
                             //lose
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }
                     }
                 }
@@ -269,19 +327,23 @@ public class User extends Thread{
                         if(highDAO.getBetWinner() == WinnerTypes.OVER){
                             //lose
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }else{
                             //win
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }
                     }else{
                         if(highDAO.getBetWinner() == WinnerTypes.UNDER){
                             //win
                             bank -= betSize/2;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize/2);
                         }else{
                             //lose
                             bank -= betSize/2;
                             bank += highDAO.getHighValue()*(betSize/2);
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*(betSize/2) - (betSize/2));
                         }
                     }
                 }
@@ -293,19 +355,23 @@ public class User extends Thread{
                         if(highDAO.getBetWinner() == WinnerTypes.OVER){
                             //lose
                             bank -= betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                         }else{
                             //win
                             bank -= betSize;
                             bank += highDAO.getHighValue()*betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*betSize - betSize);
                         }
                     }else{
                         if(highDAO.getBetWinner() == WinnerTypes.UNDER){
                             //win
                             bank -= betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), -betSize);
                         }else{
                             //lose
                             bank -= betSize;
                             bank += highDAO.getHighValue()*betSize;
+                            updateBookmakerBank(highDAO.getBookmaker().getBookmakerName(), highDAO.getHighValue()*betSize - betSize);
                         }
                     }
                 }

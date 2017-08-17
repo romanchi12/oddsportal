@@ -11,7 +11,7 @@ import javax.persistence.Table;
  * Created by Роман on 31.07.2017.
  */
 @Entity
-@Table(name = "highs_v4")
+@Table(name = "highs_v5")
 public class HighDAO {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

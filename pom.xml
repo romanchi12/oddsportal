@@ -52,6 +52,13 @@
             <artifactId>ui4j-webkit</artifactId>
             <version>3.1.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dellroad/dellroad-stuff-spring -->
+        <dependency>
+            <groupId>org.dellroad</groupId>
+            <artifactId>dellroad-stuff-spring</artifactId>
+            <version>2.2.1</version>
+        </dependency>
+
         <!--<dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>

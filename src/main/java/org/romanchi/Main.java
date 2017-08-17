@@ -5,6 +5,7 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import org.romanchi.DAO.Database;
 import org.romanchi.controllers.ControllerManager;
 import java.io.*;
 /*
@@ -46,10 +47,10 @@ public class Main extends Application {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        OddsportalParser.login("romanchi", "frdfhtkm12");
-        //launch(args);
-       OddsportalParser.parseMatchesBetsAndHandicapesAndOverUnder();
-
+        //OddsportalParser.login("romanchi", "frdfhtkm12");
+        launch(args);
+        /*OddsportalParser parser1 = new OddsportalParser(2239, 400);
+        parser1.start();*/
     }
 }
 

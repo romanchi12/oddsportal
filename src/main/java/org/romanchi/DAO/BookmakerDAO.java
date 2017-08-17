@@ -9,20 +9,24 @@ import javax.persistence.*;
  * Created by Роман on 29.07.2017.
  */
 @Entity
-@Table(name = "bookmakers_v4")
+@Table(name = "bookmakers_v5")
 public class BookmakerDAO{
     @Id
     @Column(name = "bookmaker_name")
     String bookmakerName;
     @Column(name = "hights", nullable = false)
     Integer hights;
+    @Column(name = "bank")
+    Double bank;
+
     public BookmakerDAO() {
     }
 
     public BookmakerDAO(String bookmakerName) {
         this.bookmakerName = bookmakerName;
     }
-    public BookmakerDAO(String bookmakerName, int hights) {
+
+    public BookmakerDAO(String bookmakerName, Integer hights) {
         this.bookmakerName = bookmakerName;
         this.hights = hights;
     }
@@ -43,11 +47,20 @@ public class BookmakerDAO{
         this.bookmakerName = bookmakerName;
     }
 
+    public double getBank() {
+        return bank;
+    }
+
+    public void setBank(double bank) {
+        this.bank = bank;
+    }
+
     @Override
     public String toString() {
         return "BookmakerDAO{" +
                 "bookmakerName='" + bookmakerName + '\'' +
                 ", hights=" + hights +
+                ", bank=" + bank +
                 '}';
     }
 }
