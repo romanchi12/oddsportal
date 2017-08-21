@@ -1,14 +1,14 @@
 package org.romanchi.DAO;
 
 import javax.persistence.*;
+import java.util.Set;
 
 /**
  * Created by Роман on 28.07.2017.
  */
 @Entity
-@Table(name = "matchs")
+@Table(name = "test_v4")
 public class MatchDAO {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int matchId;
@@ -18,7 +18,7 @@ public class MatchDAO {
     String time;
     @Column(name = "match_name")
     String matchName;
-    @Column(name = "match_link")
+    @Column(name = "match_link", length = 500)
     String matchLink;
     @Column(name = "score")
     String score;
@@ -30,12 +30,13 @@ public class MatchDAO {
     double second;
     @Column(name = "amount_of_available_bookmakers_odds")
     int amountOfAvailableBookmakersOdds;
-
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "ligue_id")
+    LigaDAO ligaDAO;
 
     public MatchDAO() {
     }
-
-    public MatchDAO(Integer winner, String time, String matchName, String matchLink, String score, String first, String draw, String second, String amountOfAvailableBookmakersOdds) {
+    public MatchDAO(Integer winner, String time, String matchName, String matchLink, String score, String first, String draw, String second, String amountOfAvailableBookmakersOdds, LigaDAO ligaDAO) {
         try{
             this.winner = winner;
             this.time = time;
@@ -46,11 +47,11 @@ public class MatchDAO {
             this.draw = Double.valueOf(draw);
             this.second = Double.valueOf(second);
             this.amountOfAvailableBookmakersOdds = Integer.valueOf(amountOfAvailableBookmakersOdds);
+            this.ligaDAO = ligaDAO;
         }catch (NumberFormatException ex){
             System.out.println("Number format exception " + ex.getLocalizedMessage());
         }
     }
-
     public int getMatchId() {
         return matchId;
     }
@@ -131,10 +132,19 @@ public class MatchDAO {
         this.amountOfAvailableBookmakersOdds = amountOfAvailableBookmakersOdds;
     }
 
+    public LigaDAO getLigaDAO() {
+        return ligaDAO;
+    }
+
+    public void setLigaDAO(LigaDAO ligaDAO) {
+        this.ligaDAO = ligaDAO;
+    }
+
     @Override
     public String toString() {
         return "MatchDAO{" +
-                "winner=" + winner +
+                "matchId=" + matchId +
+                ", winner=" + winner +
                 ", time='" + time + '\'' +
                 ", matchName='" + matchName + '\'' +
                 ", matchLink='" + matchLink + '\'' +
@@ -143,6 +153,7 @@ public class MatchDAO {
                 ", draw=" + draw +
                 ", second=" + second +
                 ", amountOfAvailableBookmakersOdds=" + amountOfAvailableBookmakersOdds +
+                ", ligaDAO=" + ligaDAO +
                 '}';
     }
 }

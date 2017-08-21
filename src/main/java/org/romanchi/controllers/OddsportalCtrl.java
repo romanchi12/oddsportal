@@ -91,8 +91,8 @@ public class OddsportalCtrl extends Ctrl implements Initializable {
                                             }else if(secondNode.getAttribute("class").contains("result-ok")){
                                                 winner = 2;
                                             }
-                                            MatchDAO match = new MatchDAO(winner, time, matchName, matchLink, score, first, draw, second, amountOfAvailableBookmakersOdds);
-                                            System.out.println(match);
+                                            /*MatchDAO match = new MatchDAO(winner, time, matchName, matchLink, score, first, draw, second, amountOfAvailableBookmakersOdds, li);*/
+                                            /*System.out.println(match);*/
                                         }
                                     }
                                 }catch (NullPointerException ex){
@@ -103,7 +103,6 @@ public class OddsportalCtrl extends Ctrl implements Initializable {
                     }
                 });
     }
-
     public void startParsing(ActionEvent actionEvent) {
         for(int page=1; hasNextPage; page++){
             browser.getEngine().load(locationInputField.getText() + "#/page/" + page +"/");

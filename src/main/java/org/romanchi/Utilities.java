@@ -1,34 +1,55 @@
 package org.romanchi;
 
-import org.jsoup.nodes.Document;
-import org.w3c.dom.Node;
 
-import javax.xml.transform.*;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.StringWriter;
+import org.romanchi.DAO.HighDAO;
+import org.romanchi.DAO.HighTypes;
+import org.romanchi.DAO.MatchDAO;
+import org.romanchi.DAO.WinnerTypes;
+
 
 /**
  * Created by Роман on 28.07.2017.
  */
 public class Utilities {
-    public static String asString(Node node) {
-        StringWriter writer = new StringWriter();
-        try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
-            // @checkstyle MultipleStringLiterals (1 line)
-            trans.setOutputProperty(OutputKeys.INDENT, "yes");
-            trans.setOutputProperty(OutputKeys.VERSION, "1.0");
-            trans.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-            if (!(node instanceof Document)) {
-                trans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+    public static int whoWins(MatchDAO matchDAO, HighDAO highDAO){
+        String[] goals = matchDAO.getScore().split(":");
+        try{
+            Integer first = Integer.parseInt(goals[0]);
+            Integer second = Integer.parseInt(goals[1]);
+            switch (highDAO.getType()){
+                case HighTypes.BET:{
+                    Integer diff = first - second;
+                    if(diff == 0){
+                        return WinnerTypes.DRAW;
+                    }else if(diff > 0){
+                        return WinnerTypes.FIRST;
+                    }else{
+                        return WinnerTypes.SECOND;
+                    }
+                }
+                case HighTypes.HANDICAPE:{
+
+                }
+                case HighTypes.OVER_UNDER:{
+                    int totalGoals = first + second;
+                    double total = Double.parseDouble(highDAO.getHandicape_total());
+
+                }
             }
-            trans.transform(new DOMSource(node), new StreamResult(writer));
-        } catch (final TransformerConfigurationException ex) {
-            throw new IllegalStateException(ex);
-        } catch (final TransformerException ex) {
-            throw new IllegalArgumentException(ex);
+        }catch (NumberFormatException ex){
+            System.out.println("NumberFormatException: " + ex.getLocalizedMessage());
         }
-        return writer.toString();
+        return -1;
+    }
+    public static int totalGoals(MatchDAO matchDAO){
+        String[] goals = matchDAO.getScore().split(":");
+        try{
+            Integer first = Integer.parseInt(goals[0]);
+            Integer second = Integer.parseInt(goals[1]);
+            return first + second;
+        }catch (NumberFormatException ex){
+            ex.printStackTrace();
+            return -1;
+        }
     }
 }
